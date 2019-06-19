@@ -240,6 +240,7 @@ As a consequence, the probability of choosing option $i$ among $l$ alternatives 
 	P(y = i) &= \frac{e^{V_i}}{\sum_{\forall j}e^{V_j}}
 \end{align}
 
+
 The fact the choice probability is expressed via a logistic function is a significant advantage of a logit model over others: first of all, because it simplifies the posterior sample generation.
 For instance, in case of probit model it is necessary to approximate the n-dimensional integral.
 
@@ -250,11 +251,6 @@ all the required information to make a choice. In that case the unobservable par
 \subsection{Logistic regression from scratch}
 \textbf{¡NB!}: In this part we define an operation of applying a function to a vector: $f((x_, x_2, ..., x_n)) = (f(x_1), f(x_2), ..., f(x_n))$. It signifies the function is applied to each element of the vector. The introduction of this operation is reasonable, because
 this part is done in Python using the library Numpy, where this operation is defined.
-
-\begin{figure}
-  \includegraphics[width=\linewidth]{sigmoid.png}
-  \caption{Sigmoid graph with key points}
-\end{figure}
 
 To better understand the operating principle of logistic regression, let's manually deduce how it generates probabilities. Our sample collected by difference-based method is of shape $N$ x $k$, while
 the target variable is a binary one (consists of only $0$ or $1$). Thereby, we need a simple two-group logistic model. The probability for $i$-th element of sample is calculated via sigmoid function:
@@ -278,6 +274,11 @@ As loss function must be minimized, we can make an equivalent transition by mult
 \begin{equation}
 	- \sum_{i=1}^N (y_i \cdot log(h(wx_i)) + (1 - y_i) \cdot log(1 - h(wx_i))) \rightarrow min_w
 \end{equation}
+
+\begin{figure}
+  \includegraphics[width=\linewidth]{sigmoid.png}
+  \caption{Sigmoid graph with key points}
+\end{figure}
 
 We have deduced the loss function of logistic regression. This function is also called log-loss, and the family of such functions - bernoulli or binomial likelihood. Defining operation $f(vector)$ as application of $f()$ to each component of $vector$, we can rewrite
 the expression as
@@ -328,19 +329,26 @@ where $h(t)$ is a sigmoid function, and $P(X)$ can be derived out of the integra
 \section{Programming}
 
 \subsection{Aggregate model}
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+   \centering
+   \includegraphics[width=0.55\textwidth]{agg_model.png}
+   \caption{Summary of aggregated model}
+\end{wrapfigure}
+
 First of all, the data is transformed into the two-dimensional table using difference-based method. With this table we are ready to build common model, which does not take into account personal preferences and considers
 the respondents as a single agent. To better specify the posterior estimates, we firstly deduce them with simple logistic regression and then set weak prior distributions with the obtained evaluations as means and
 large value of variance (to make it weak). We also set Bernoulli likelihood function and use NUTS algorithm to sample the values from the posterior function. %сноска на nuts
-
-\begin{figure}
-  \includegraphics[width=\linewidth]{sigmoid.png}
-  \caption{Sigmoid graph with key points}
-\end{figure}
 
 \subsection{Personal models}
 We also need to build personal models for each respondent. As we use Bayes inference, estimates are very close to reality even though we evaluate 11 parameters by 28 observations for each person. We are now aware of
 the aproximate estimates for each person from the common model, thus we may set prior distributions more strictly (reduce the variance). Moreover, we can limit the values of some parameters: for instance, if we are
 confident the coefficient takes on a positive value, we can use Wald or Log-Normal distribution as a prior for it. Consequently, we get 11-dimensional vector of estimates for each person.
+
+\begin{figure}
+  \includegraphics[width=\linewidth]{estimates_2_dim.png}
+  \caption{Personal models estimates visualized by t-SNE}
+\end{figure}
 
 Our next aim is to visualize the output. Here we use t-SNE algorithm, which models a distribution in less dimensional space (on the plain in our case) and approaches it to the true distribution by minimizing
 Kullback–Leibler divergence. This way we reduce the dimensionality of estimates for each person to 2 and 3 and visualize them. %сноска tsne
@@ -350,7 +358,7 @@ The code for both models is given in the \hyperref[app_2]{Applications (2)}.
 \section{Conclusion}
 We have solved a real-life case, where we have unstructured data of conjoint analysis and need to collect valuable information from it. It stands to reason that much more inferences can be made out from the data, however
 it is not our goal. We have obtained the required coefficients estimates, built various models and visualized them. More interesting graphs from this data can be found in my repository on github, @aktsvigun %ссылка на гитхаб.
-The work also allows one to inspect \cite{Vasylenko92}  all the conjoint data by applying difference-based method of creating the table and using simple but very precise models: their competence is proved by the graphs from the paper.
+The work also allows one to inspect all the conjoint data by applying difference-based method of creating the table and using simple but very precise models: their competence is proved by the graphs from the paper.
 
 \addcontentsline{toc}{section}{References}
 \bibliographystyle{utf8gost705u}  % стилевой файл для оформления по ГОСТу
