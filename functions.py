@@ -61,13 +61,13 @@ def diff_model(df, features, random_state=0):
         # For each card
         for num_test in range(1, 8):
             # Winning alternative number
-            win_number = df.loc[num_person, 'T{0}_select'.format(num_test)]
+            win_number = df.loc[num_person, f'T{num_test}_select']
             # Winning card's characteristics
-            char_win = df.loc[num_person, ['T{0}_C{1}_{2}'.format(num_test, win_number, features[i]) \
+            char_win = df.loc[num_person, [f'T{num_test}_C{win_number}_{features[i]}' \
                                                for i in range(10)]].values
             # For each of lose alternatives
             for num_obj in np.delete(range(1, 6), win_number-1):
-                char_lose = df.loc[num_person, ['T{0}_C{1}_{2}'.format(num_test, num_obj, features[i]) \
+                char_lose = df.loc[num_person, [f'T{num_test}_C{num_obj}_{features[i]}'\
                                                 for i in range(10)]].values
                 # What to add to target, 0 or 1
                 win_first = np.random.randint(2)
@@ -105,12 +105,12 @@ def personal_model(df, features, model='lr', priors=None, df_slice=None, estimat
     for num_person in range(*df_slice):
         df_person = pd.DataFrame(columns=np.append(features, 'target'))
         for num_test in range(1, 8):
-            # Для каждого объекта, кроме выигрышного:
-            win_number = df.loc[num_person, 'T{0}_select'.format(num_test)]
-            char_win = df.loc[num_person, ['T{0}_C{1}_{2}'.format(num_test, win_number, features[i]) \
+            # For each object except for the winning:
+            win_number = df.loc[num_person, f'T{num_test}_select']
+            char_win = df.loc[num_person, [f'T{num_test}_C{win_number}_{features[i]}' \
                                                for i in range(10)]].values
             for num_obj in np.delete(range(1, 6), win_number-1):
-                char_lose = df.loc[num_person, ['T{0}_C{1}_{2}'.format(num_test, num_obj, features[i]) \
+                char_lose = df.loc[num_person, [f'T{num_test}_C{num_obj}_{features[i]}' \
                                                 for i in range(10)]].values
                 win_first = np.random.randint(2)
                 if win_first:
@@ -152,7 +152,6 @@ def visualize_estimates(estimates, annotate=True, use_features=None, three_dim=T
             perplexity: int, default=6, which perplexity to use if t-SNE is chosen.
             features: list or np.array, default=None, which features to visualize if use_features consists of str.
             enlight: int or None, default=None, the number of feature (starting with 0) by which to enlight the points.
-            The procedure is as follows: the values are divided into 10 equal groups, determined by quantlies 10-90%.
             savefig: boolean, default=False, whether to save graph or not.
             
         returns:
@@ -303,3 +302,40 @@ def parallel_function(function, args, use_len=True):
 
     estimates = np.concatenate((res_1, res_2, res_3, res_4, res_5, res_6, res_7, res_8))
     return estimates
+
+if __name__ == '__main__':
+    df, meta = pyreadstat.read_sav('conjoint_host_sim_dummy.sav')
+    for n in range(1, 8):
+        df[f'T{n}_select'] = df[f'T{n}_select'].astype(int)
+    features = np.delete(np.unique(list(map(lambda x: x[x.rindex('_')+1:],
+                                            df.columns[2:]))), -1)
+    df_diff = diff_model(df, features)
+    with pm.Model() as logistic_model:
+        pm.glm.GLM.from_formula('target ~ {0}'.format(' '.join(
+            list(map(lambda x: str(x)+' '+'+', df_diff.columns[:-1])))[:-2]),
+            data=df_diff, family=pm.glm.families.Binomial())
+        trace_logistic_model = pm.sample(2000, step=pm.NUTS(),
+                                         chains=1, tune=1000)
+    plot_traces(trace_logistic_model);
+    print(pm.summary(trace_logistic_model))
+    
+    priors = dict()
+    priors['Intercept'] = pm.Laplace.dist(0, 0.2)
+    priors['Gigabytes'] = pm.HalfStudentT.dist(20, 0.18)
+    priors['Hostprovider1'] = pm.HalfStudentT.dist(20, 0.8)
+    priors['Hostprovider2'] = pm.Lognormal.dist(-1.3, 1)
+    priors['Hostprovider3'] = pm.Lognormal.dist(-2, 1)
+    priors['Minutes'] = pm.Lognormal.dist(-1.3, 1.5)
+    priors['Payment'] = pm.Lognormal.dist(-3.2, 1)
+    priors['Personalization'] = pm.Lognormal.dist(-2.5, 1)
+    priors['Price'] = pm.Wald.dist(0.5, 0.5)
+    priors['Quantitysim2'] = pm.HalfStudentT.dist(20, 0.2)
+    priors['Quantitysim3'] = pm.Wald.dist(0.2, 0.5)
+    
+    names_estimates = parallel_function(personal_model,
+                                        (df, features, 'bayes',
+                                         priors, len(df)))
+    estimates = np.hstack((np.expand_dims(names_estimates[:, 0], -1),
+                           names_estimates[:, 11:]))
+    visualize_estimates(estimates, savefig=True, features=features,
+                        enlight=1, three_dim=False)
